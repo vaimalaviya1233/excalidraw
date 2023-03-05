@@ -52,6 +52,10 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     canvasActions: {
       ...DEFAULT_UI_OPTIONS.canvasActions,
       ...canvasActions,
+      tools: {
+        ...DEFAULT_UI_OPTIONS.canvasActions.tools,
+        ...props.UIOptions?.canvasActions?.tools,
+      },
     },
   };
 

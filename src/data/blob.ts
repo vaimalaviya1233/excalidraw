@@ -3,7 +3,7 @@ import { cleanAppStateForExport } from "../appState";
 import { ALLOWED_IMAGE_MIME_TYPES, MIME_TYPES } from "../constants";
 import { clearElementsForExport } from "../element";
 import { ExcalidrawElement, FileId } from "../element/types";
-import { CanvasError } from "../errors";
+import { CanvasError, ImageSceneDataError } from "../errors";
 import { t } from "../i18n";
 import { calculateScrollCenter } from "../scene";
 import { AppState, DataURL, LibraryItem } from "../types";
@@ -23,15 +23,12 @@ const parseFileContents = async (blob: Blob | File) => {
       ).decodePngMetadata(blob);
     } catch (error: any) {
       if (error.message === "INVALID") {
-        throw new DOMException(
+        throw new ImageSceneDataError(
           t("alerts.imageDoesNotContainScene"),
-          "EncodingError",
+          "IMAGE_NOT_CONTAINS_SCENE_DATA",
         );
       } else {
-        throw new DOMException(
-          t("alerts.cannotRestoreFromImage"),
-          "EncodingError",
-        );
+        throw new ImageSceneDataError(t("alerts.cannotRestoreFromImage"));
       }
     }
   } else {
@@ -57,15 +54,12 @@ const parseFileContents = async (blob: Blob | File) => {
         });
       } catch (error: any) {
         if (error.message === "INVALID") {
-          throw new DOMException(
+          throw new ImageSceneDataError(
             t("alerts.imageDoesNotContainScene"),
-            "EncodingError",
+            "IMAGE_NOT_CONTAINS_SCENE_DATA",
           );
         } else {
-          throw new DOMException(
-            t("alerts.cannotRestoreFromImage"),
-            "EncodingError",
-          );
+          throw new ImageSceneDataError(t("alerts.cannotRestoreFromImage"));
         }
       }
     }

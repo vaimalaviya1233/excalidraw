@@ -14,7 +14,7 @@ import {
   hasText,
 } from "../scene";
 import { SHAPES } from "../shapes";
-import { AppState, Zoom } from "../types";
+import { AppProps, AppState, CanvasActions, Zoom } from "../types";
 import {
   capitalizeString,
   isTransparent,
@@ -209,15 +209,25 @@ export const ShapesSwitcher = ({
   setAppState,
   onImageAction,
   appState,
+  UIOptions,
 }: {
   canvas: HTMLCanvasElement | null;
   activeTool: AppState["activeTool"];
   setAppState: React.Component<any, AppState>["setState"];
   onImageAction: (data: { pointerType: PointerType | null }) => void;
   appState: AppState;
+  UIOptions: AppProps["UIOptions"];
 }) => (
   <>
     {SHAPES.map(({ value, icon, key, numericKey, fillable }, index) => {
+      if (
+        UIOptions.canvasActions.tools[
+          value as Extract<typeof value, keyof CanvasActions["tools"]>
+        ] === false
+      ) {
+        return null;
+      }
+
       const label = t(`toolBar.${value}`);
       const letter =
         key && capitalizeString(typeof key === "string" ? key : key[0]);

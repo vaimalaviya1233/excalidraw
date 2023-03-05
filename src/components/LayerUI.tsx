@@ -305,6 +305,7 @@ const LayerUI = ({
                                 insertOnCanvasDirectly: pointerType !== "mouse",
                               });
                             }}
+                            UIOptions={UIOptions}
                           />
                         </Stack.Row>
                       </Island>
@@ -409,6 +410,7 @@ const LayerUI = ({
           renderSidebars={renderSidebars}
           device={device}
           renderWelcomeScreen={renderWelcomeScreen}
+          UIOptions={UIOptions}
         />
       )}
 
