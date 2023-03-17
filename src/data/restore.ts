@@ -75,7 +75,8 @@ const getFontFamilyByName = (fontFamilyName: string): FontFamilyValues => {
 };
 
 const restoreElementWithProperties = <
-  T extends Required<Omit<ExcalidrawElement, "customData">> & {
+  T extends Required<Omit<ExcalidrawElement, "subtype" | "customData">> & {
+    subtype?: ExcalidrawElement["subtype"];
     customData?: ExcalidrawElement["customData"];
     /** @deprecated */
     boundElementIds?: readonly ExcalidrawElement["id"][];
@@ -138,6 +139,9 @@ const restoreElementWithProperties = <
     locked: element.locked ?? false,
   };
 
+  if ("subtype" in element) {
+    base.subtype = element.subtype;
+  }
   if ("customData" in element) {
     base.customData = element.customData;
   }

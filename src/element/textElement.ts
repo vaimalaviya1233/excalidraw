@@ -1,3 +1,4 @@
+import { getSubtypeMethods, SubtypeMethods } from "../subtypes";
 import { getFontString, arrayToMap, isTestEnv } from "../utils";
 import {
   ExcalidrawElement,
@@ -31,44 +32,29 @@ import {
 } from "./textWysiwyg";
 import { ExtractSetType } from "../utility-types";
 
-export const measureTextElement = (
-  element: Pick<
-    ExcalidrawTextElement,
-    "customData" | "fontSize" | "fontFamily" | "text"
-  >,
-  next?: {
-    fontSize?: number;
-    text?: string;
-    customData?: ExcalidrawElement["customData"];
-  },
-): { width: number; height: number } => {
-  // Non-WYSIWYG handling goes here
+export const measureTextElement = function (element, next) {
+  const map = getSubtypeMethods(element.subtype);
+  if (map?.measureText) {
+    return map.measureText(element, next);
+  }
 
   const fontSize = next?.fontSize ?? element.fontSize;
   const font = getFontString({ fontSize, fontFamily: element.fontFamily });
   const text = next?.text ?? element.text;
   return measureText(text, font);
-};
+} as SubtypeMethods["measureText"];
 
-export const wrapTextElement = (
-  element: Pick<
-    ExcalidrawTextElement,
-    "customData" | "fontSize" | "fontFamily" | "originalText"
-  >,
-  containerWidth: number,
-  next?: {
-    fontSize?: number;
-    text?: string;
-    customData?: ExcalidrawElement["customData"];
-  },
-): string => {
-  // Non-WYSIWYG handling goes here
+export const wrapTextElement = function (element, containerWidth, next) {
+  const map = getSubtypeMethods(element.subtype);
+  if (map?.wrapText) {
+    return map.wrapText(element, containerWidth, next);
+  }
 
   const fontSize = next?.fontSize ?? element.fontSize;
   const font = getFontString({ fontSize, fontFamily: element.fontFamily });
   const text = next?.text ?? element.originalText;
   return wrapText(text, font, containerWidth);
-};
+} as SubtypeMethods["wrapText"];
 
 export const normalizeText = (text: string) => {
   return (
