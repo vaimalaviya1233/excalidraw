@@ -62,6 +62,7 @@ import {
   GRID_SIZE,
   IMAGE_RENDER_TIMEOUT,
   isAndroid,
+  isBrave,
   LINE_CONFIRM_THRESHOLD,
   MAX_ALLOWED_FILE_BYTES,
   MIME_TYPES,
@@ -267,6 +268,7 @@ import {
   getContainerDims,
   getContainerElement,
   getTextBindableContainerAtPosition,
+  isMeasureTextSupported,
   isValidTextContainer,
 } from "../element/textElement";
 import { isHittingElementNotConsideringBoundingBox } from "../element/collision";
@@ -284,6 +286,8 @@ import { actionPaste } from "../actions/actionClipboard";
 import { actionToggleHandTool } from "../actions/actionCanvas";
 import { jotaiStore } from "../jotai";
 import { activeConfirmDialogAtom } from "./ActiveConfirmDialog";
+import { actionCreateContainerFromText } from "../actions/actionBoundText";
+import BraveMeasureTextError from "./BraveMeasureTextError";
 
 const deviceContextInitialValue = {
   isSmScreen: false,
@@ -428,7 +432,6 @@ class App extends React.Component<AppProps, AppState> {
     };
 
     this.id = nanoid();
-
     this.library = new Library(this);
     if (excalidrawRef) {
       const readyPromise =
@@ -710,6 +713,8 @@ class App extends React.Component<AppProps, AppState> {
         const theme =
           actionResult?.appState?.theme || this.props.theme || THEME.LIGHT;
         let name = actionResult?.appState?.name ?? this.state.name;
+        const errorMessage =
+          actionResult?.appState?.errorMessage ?? this.state.errorMessage;
         if (typeof this.props.viewModeEnabled !== "undefined") {
           viewModeEnabled = this.props.viewModeEnabled;
         }
@@ -725,7 +730,6 @@ class App extends React.Component<AppProps, AppState> {
         if (typeof this.props.name !== "undefined") {
           name = this.props.name;
         }
-
         this.setState(
           (state) => {
             // using Object.assign instead of spread to fool TS 4.2.2+ into
@@ -743,6 +747,7 @@ class App extends React.Component<AppProps, AppState> {
               gridSize,
               theme,
               name,
+              errorMessage,
             });
           },
           () => {
@@ -871,7 +876,6 @@ class App extends React.Component<AppProps, AppState> {
         ),
       };
     }
-
     // FontFaceSet loadingdone event we listen on may not always fire
     // (looking at you Safari), so on init we manually load fonts for current
     // text elements on canvas, and rerender them once done. This also
@@ -998,6 +1002,13 @@ class App extends React.Component<AppProps, AppState> {
       this.restoreFileFromShare();
     } else {
       this.updateDOMRect(this.initializeScene);
+    }
+
+    // note that this check seems to always pass in localhost
+    if (isBrave() && !isMeasureTextSupported()) {
+      this.setState({
+        errorMessage: <BraveMeasureTextError />,
+      });
     }
   }
 
@@ -2767,7 +2778,6 @@ class App extends React.Component<AppProps, AppState> {
       );
       if (container) {
         if (
-          isArrowElement(container) ||
           hasBoundTextElement(container) ||
           !isTransparent(container.backgroundColor) ||
           isHittingElementNotConsideringBoundingBox(container, this.state, [
@@ -6238,6 +6248,7 @@ class App extends React.Component<AppProps, AppState> {
       actionGroup,
       actionUnbindText,
       actionBindText,
+      actionCreateContainerFromText,
       actionUngroup,
       CONTEXT_MENU_SEPARATOR,
       actionAddToLibrary,

@@ -1,7 +1,7 @@
 import { BOUND_TEXT_PADDING } from "../constants";
 import { API } from "../tests/helpers/api";
 import {
-  computeContainerHeightForBoundText,
+  computeContainerDimensionForBoundText,
   getContainerCoords,
   getMaxContainerWidth,
   getMaxContainerHeight,
@@ -16,7 +16,7 @@ describe("Test wrapText", () => {
     const text = "Hello whats up     ";
     const maxWidth = 200 - BOUND_TEXT_PADDING * 2;
     const res = wrapText(text, font, maxWidth);
-    expect(res).toBe("Hello whats up    ");
+    expect(res).toBe(text);
   });
 
   it("should work with emojis", () => {
@@ -26,7 +26,7 @@ describe("Test wrapText", () => {
     expect(res).toBe("😀");
   });
 
-  it("should show the text correctly when min width reached", () => {
+  it("should show the text correctly when max width reached", () => {
     const text = "Hello😀";
     const maxWidth = 10;
     const res = wrapText(text, font, maxWidth);
@@ -35,10 +35,11 @@ describe("Test wrapText", () => {
 
   describe("When text doesn't contain new lines", () => {
     const text = "Hello whats up";
+
     [
       {
         desc: "break all words when width of each word is less than container width",
-        width: 90,
+        width: 80,
         res: `Hello 
 whats 
 up`,
@@ -62,7 +63,7 @@ p`,
       {
         desc: "break words as per the width",
 
-        width: 150,
+        width: 140,
         res: `Hello whats 
 up`,
       },
@@ -93,7 +94,7 @@ whats up`;
     [
       {
         desc: "break all words when width of each word is less than container width",
-        width: 90,
+        width: 80,
         res: `Hello
 whats 
 up`,
@@ -135,6 +136,7 @@ whats up`,
       });
     });
   });
+
   describe("When text is long", () => {
     const text = `hellolongtextthisiswhatsupwithyouIamtypingggggandtypinggg break it now`;
     [
@@ -173,6 +175,14 @@ break it now`,
         expect(res).toEqual(data.res);
       });
     });
+  });
+
+  it("should wrap the text correctly when word length is exactly equal to max width", () => {
+    const text = "Hello Excalidraw";
+    // Length of "Excalidraw" is 100 and exacty equal to max width
+    const res = wrapText(text, font, 100);
+    expect(res).toEqual(`Hello 
+Excalidraw`);
   });
 });
 
@@ -214,7 +224,7 @@ describe("Test measureText", () => {
     });
   });
 
-  describe("Test computeContainerHeightForBoundText", () => {
+  describe("Test computeContainerDimensionForBoundText", () => {
     const params = {
       width: 178,
       height: 194,
@@ -225,7 +235,9 @@ describe("Test measureText", () => {
         type: "rectangle",
         ...params,
       });
-      expect(computeContainerHeightForBoundText(element, 150)).toEqual(160);
+      expect(computeContainerDimensionForBoundText(150, element.type)).toEqual(
+        160,
+      );
     });
 
     it("should compute container height correctly for ellipse", () => {
@@ -233,7 +245,9 @@ describe("Test measureText", () => {
         type: "ellipse",
         ...params,
       });
-      expect(computeContainerHeightForBoundText(element, 150)).toEqual(226);
+      expect(computeContainerDimensionForBoundText(150, element.type)).toEqual(
+        226,
+      );
     });
 
     it("should compute container height correctly for diamond", () => {
@@ -241,7 +255,9 @@ describe("Test measureText", () => {
         type: "diamond",
         ...params,
       });
-      expect(computeContainerHeightForBoundText(element, 150)).toEqual(320);
+      expect(computeContainerDimensionForBoundText(150, element.type)).toEqual(
+        320,
+      );
     });
   });
 

@@ -8,15 +8,17 @@ import {
   NonDeletedExcalidrawElement,
 } from "./types";
 import { mutateElement } from "./mutateElement";
-import { BOUND_TEXT_PADDING, TEXT_ALIGN, VERTICAL_ALIGN } from "../constants";
+import {
+  BOUND_TEXT_PADDING,
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_SIZE,
+  TEXT_ALIGN,
+  VERTICAL_ALIGN,
+} from "../constants";
 import { MaybeTransformHandleType } from "./transformHandles";
 import Scene from "../scene/Scene";
 import { isTextElement } from ".";
-import {
-  isBoundToContainer,
-  isImageElement,
-  isArrowElement,
-} from "./typeChecks";
+import { isBoundToContainer, isArrowElement } from "./typeChecks";
 import { LinearElementEditor } from "./linearElementEditor";
 import { AppState } from "../types";
 import { isTextBindableContainer } from "./typeChecks";
@@ -27,6 +29,7 @@ import {
   resetOriginalContainerCache,
   updateOriginalContainerCache,
 } from "./textWysiwyg";
+import { ExtractSetType } from "../utility-types";
 
 export const measureTextElement = (
   element: Pick<
@@ -126,9 +129,9 @@ export const redrawTextBoundingBox = (
 
       let nextHeight = containerDims.height;
       if (metrics.height > maxContainerHeight) {
-        nextHeight = computeContainerHeightForBoundText(
-          container,
+        nextHeight = computeContainerDimensionForBoundText(
           metrics.height,
+          container.type,
         );
         mutateElement(container, { height: nextHeight });
         maxContainerHeight = getMaxContainerHeight(container);
@@ -226,9 +229,9 @@ export const handleBindTextResize = (
     }
     // increase height in case text element height exceeds
     if (nextHeight > maxHeight) {
-      containerHeight = computeContainerHeightForBoundText(
-        container,
+      containerHeight = computeContainerDimensionForBoundText(
         nextHeight,
+        container.type,
       );
 
       const diff = containerHeight - containerDims.height;
@@ -363,25 +366,37 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
   const originalLines = text.split("\n");
   const spaceWidth = getLineWidth(" ", font);
 
+  let currentLine = "";
+  let currentLineWidthTillNow = 0;
+
   const push = (str: string) => {
     if (str.trim()) {
       lines.push(str);
     }
   };
+
+  const resetParams = () => {
+    currentLine = "";
+    currentLineWidthTillNow = 0;
+  };
+
   originalLines.forEach((originalLine) => {
-    const words = originalLine.split(" ");
-    // This means its newline so push it
-    if (words.length === 1 && words[0] === "") {
-      lines.push(words[0]);
+    const currentLineWidth = getTextWidth(originalLine, font);
+
+    //Push the line if its <= maxWidth
+    if (currentLineWidth <= maxWidth) {
+      lines.push(originalLine);
       return; // continue
     }
-    let currentLine = "";
-    let currentLineWidthTillNow = 0;
+    const words = originalLine.split(" ");
+
+    resetParams();
 
     let index = 0;
 
     while (index < words.length) {
       const currentWordWidth = getLineWidth(words[index], font);
+
       // This will only happen when single word takes entire width
       if (currentWordWidth === maxWidth) {
         push(words[index]);
@@ -393,8 +408,8 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
         // push current line since the current word exceeds the max width
         // so will be appended in next line
         push(currentLine);
-        currentLine = "";
-        currentLineWidthTillNow = 0;
+
+        resetParams();
 
         while (words[index].length > 0) {
           const currentChar = String.fromCodePoint(
@@ -405,10 +420,6 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
           words[index] = words[index].slice(currentChar.length);
 
           if (currentLineWidthTillNow >= maxWidth) {
-            // only remove last trailing space which we have added when joining words
-            if (currentLine.slice(-1) === " ") {
-              currentLine = currentLine.slice(0, -1);
-            }
             push(currentLine);
             currentLine = currentChar;
             currentLineWidthTillNow = width;
@@ -416,11 +427,11 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
             currentLine += currentChar;
           }
         }
+
         // push current line if appending space exceeds max width
         if (currentLineWidthTillNow + spaceWidth >= maxWidth) {
           push(currentLine);
-          currentLine = "";
-          currentLineWidthTillNow = 0;
+          resetParams();
         } else {
           // space needs to be appended before next word
           // as currentLine contains chars which couldn't be appended
@@ -428,7 +439,6 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
           currentLine += " ";
           currentLineWidthTillNow += spaceWidth;
         }
-
         index++;
       } else {
         // Start appending words in a line till max width reached
@@ -436,10 +446,9 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
           const word = words[index];
           currentLineWidthTillNow = getLineWidth(currentLine + word, font);
 
-          if (currentLineWidthTillNow >= maxWidth) {
+          if (currentLineWidthTillNow > maxWidth) {
             push(currentLine);
-            currentLineWidthTillNow = 0;
-            currentLine = "";
+            resetParams();
 
             break;
           }
@@ -450,22 +459,15 @@ export const wrapText = (text: string, font: FontString, maxWidth: number) => {
           if (currentLineWidthTillNow + spaceWidth >= maxWidth) {
             const word = currentLine.slice(0, -1);
             push(word);
-            currentLine = "";
-            currentLineWidthTillNow = 0;
+            resetParams();
             break;
           }
         }
-        if (currentLineWidthTillNow === maxWidth) {
-          currentLine = "";
-          currentLineWidthTillNow = 0;
-        }
       }
     }
-    if (currentLine) {
+    if (currentLine.slice(-1) === " ") {
       // only remove last trailing space which we have added when joining words
-      if (currentLine.slice(-1) === " ") {
-        currentLine = currentLine.slice(0, -1);
-      }
+      currentLine = currentLine.slice(0, -1);
       push(currentLine);
     }
   });
@@ -704,14 +706,24 @@ export const shouldAllowVerticalAlign = (
       }
       return true;
     }
-    const boundTextElement = getBoundTextElement(element);
-    if (boundTextElement) {
-      if (isArrowElement(element)) {
+    return false;
+  });
+};
+
+export const suppportsHorizontalAlign = (
+  selectedElements: NonDeletedExcalidrawElement[],
+) => {
+  return selectedElements.some((element) => {
+    const hasBoundContainer = isBoundToContainer(element);
+    if (hasBoundContainer) {
+      const container = getContainerElement(element);
+      if (isTextElement(element) && isArrowElement(container)) {
         return false;
       }
       return true;
     }
-    return false;
+
+    return isTextElement(element);
   });
 };
 
@@ -752,32 +764,34 @@ export const getTextBindableContainerAtPosition = (
   return isTextBindableContainer(hitElement, false) ? hitElement : null;
 };
 
-export const isValidTextContainer = (element: ExcalidrawElement) => {
-  return (
-    element.type === "rectangle" ||
-    element.type === "ellipse" ||
-    element.type === "diamond" ||
-    isImageElement(element) ||
-    isArrowElement(element)
-  );
-};
+const VALID_CONTAINER_TYPES = new Set([
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "image",
+  "arrow",
+]);
 
-export const computeContainerHeightForBoundText = (
-  container: NonDeletedExcalidrawElement,
-  boundTextElementHeight: number,
+export const isValidTextContainer = (element: ExcalidrawElement) =>
+  VALID_CONTAINER_TYPES.has(element.type);
+
+export const computeContainerDimensionForBoundText = (
+  dimension: number,
+  containerType: ExtractSetType<typeof VALID_CONTAINER_TYPES>,
 ) => {
-  if (container.type === "ellipse") {
-    return Math.round(
-      ((boundTextElementHeight + BOUND_TEXT_PADDING * 2) / Math.sqrt(2)) * 2,
-    );
+  dimension = Math.ceil(dimension);
+  const padding = BOUND_TEXT_PADDING * 2;
+
+  if (containerType === "ellipse") {
+    return Math.round(((dimension + padding) / Math.sqrt(2)) * 2);
   }
-  if (isArrowElement(container)) {
-    return boundTextElementHeight + BOUND_TEXT_PADDING * 8 * 2;
+  if (containerType === "arrow") {
+    return dimension + padding * 8;
   }
-  if (container.type === "diamond") {
-    return 2 * (boundTextElementHeight + BOUND_TEXT_PADDING * 2);
+  if (containerType === "diamond") {
+    return 2 * (dimension + padding);
   }
-  return boundTextElementHeight + BOUND_TEXT_PADDING * 2;
+  return dimension + padding;
 };
 
 export const getMaxContainerWidth = (container: ExcalidrawElement) => {
@@ -833,4 +847,15 @@ export const getMaxContainerHeight = (container: ExcalidrawElement) => {
     return Math.round(height / 2) - BOUND_TEXT_PADDING * 2;
   }
   return height - BOUND_TEXT_PADDING * 2;
+};
+
+export const isMeasureTextSupported = () => {
+  const width = getTextWidth(
+    DUMMY_TEXT,
+    getFontString({
+      fontSize: DEFAULT_FONT_SIZE,
+      fontFamily: DEFAULT_FONT_FAMILY,
+    }),
+  );
+  return width > 0;
 };
